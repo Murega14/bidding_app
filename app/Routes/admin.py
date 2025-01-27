@@ -1,6 +1,6 @@
 from flask import Blueprint, request, jsonify
 import logging
-from ..models import db, Admin, Product
+from ..models import db, Admin, Product, Bid
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_current_user
 from datetime import timedelta, datetime
 
@@ -180,9 +180,43 @@ def end_bid(id: int):
     except Exception:
         logger.error("Failed to stop bidding")
         
-#@admin.route('/api/v1/products/sold', methods=['GET'])
-#@jwt_required()
-#def view_sold_products():
+@admin.route('/api/v1/products/sold', methods=['GET'])
+@jwt_required()
+def view_sold_products():
     """
     view products that have been sold
-    """     
+    """
+    try:
+        sold_products = Product.query.filter_by(status="sold").all()
+        
+        product_list = []
+        for product in sold_products:
+            highest_bid = Bid.query.filter_by(product_id=product.id)\
+                .order_by(Bid.bid_price.desc())\
+                .first()
+                
+            winning_price = float(highest_bid.bid_price) if highest_bid else float(product.starting_price)
+            
+            product_list.append({
+                "id": product.id,
+                "name": product.name,
+                "description": product.description,
+                "final_price": winning_price,
+                "sold_at": product.updated_at.strftime("%Y-%m-%d %H:%M:%S"),
+                "winning_bid": {
+                    "user_id": highest_bid.user_id if highest_bid else None,
+                    "bid_price": winning_price
+                }
+            })
+            
+        return jsonify({
+            "status": "success",
+            "sold_products": product_list
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"Error viewing sold products: {str(e)}")
+        return jsonify({
+            "status": "error",
+            "message": "Failed to retrieve sold products"
+        }), 500
