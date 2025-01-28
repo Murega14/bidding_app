@@ -48,7 +48,7 @@ def signup_user():
         return jsonify({"success": "Account created"}), 200
     
     except Exception as e:
-        logger.error("failed to create account")
+        logger.error(f"failed to create account: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "internal server error"}), 500
     
@@ -94,7 +94,7 @@ def login_user():
         return response
     
     except Exception as e:
-        logger.error(f"failed to login user: {user.id}")
+        logger.error(f"failed to login user: {user.id},{str(e)}")
         return jsonify({"error": "failed to login user"})
     
 @user.route('/api/v1/products', methods=['GET'])
@@ -125,7 +125,7 @@ def view_products():
         return jsonify(product_list), 200
     
     except Exception as e:
-        logger.error("failed to fetch products")
+        logger.error(f"failed to fetch products: {str(e)}")
         return jsonify({"error": "internal server error"}), 500
     
 @user.route('/api/v1/products/<int:id>/bid', methods=['POST'])
@@ -175,6 +175,6 @@ def make_bid(id: int):
         return jsonify({"message": "bid placed successfully"}), 201
     
     except Exception as e:
-        logger.error("failed to bid on product")
+        logger.error(f"failed to bid on product: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "internal server error"}), 500

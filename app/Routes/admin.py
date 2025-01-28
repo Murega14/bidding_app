@@ -47,8 +47,8 @@ def signup_admin():
         logger.info(f"new admin account has been created")
         return jsonify({"success": "Account created"}), 200
     
-    except Exception:
-        logger.error("failed to create account")
+    except Exception as e:
+        logger.error(f"failed to create account: {str(e)}")
         db.session.rollback()
         return jsonify({"error": "internal server error"}), 500
     
@@ -91,9 +91,7 @@ def login_admin():
         return response
     
     except Exception as e:
-        logger.error(f"failed to login user: {admin.id}")
-    except Exception:
-        logger.error(f"failed to login user: {admin.id}")
+        logger.error(f"failed to login user: {admin.id} {str(e)}")
         
 @admin.route('/api/v1/admin/product/add', methods=['POST'])
 @jwt_required()
@@ -108,11 +106,13 @@ def create_product():
             logger.error(f"user {user_id} does not exist")
             return jsonify({"error": "user not found"}), 404
         
+        
         data = request.get_json()
         name = data.get('name')
         description = data.get('description')
         starting_price = data.get('starting_price')
         end_time = data.get('end_time')
+        
         
         if not all([name, description, starting_price, end_time]):
             logger.error("not all fields have been entered")
@@ -141,9 +141,10 @@ def create_product():
         return jsonify({"message": "product has been added successfully"}), 201
     
     except Exception as e:
-        logger.error("failed to create product")
-    except Exception:
-        logger.error("failed to create product")
+        logger.error(f"failed to create product: {str(e)}")
+        db.session.rollback()
+        return jsonify({"error": "internal server error"}),500
+    
     
 @admin.route('/api/v1/admin/id/end', methods=['PUT'])
 @jwt_required()
@@ -176,10 +177,10 @@ def end_bid(id: int):
         return jsonify({"message": "bidding stopped"}), 200
     
     except Exception as e:
-        logger.error("Failed to stop bidding")
-    except Exception:
-        logger.error("Failed to stop bidding")
-        
+        logger.error(f"Failed to stop bidding: {str(e)}")
+        db.session.rollback()
+        return jsonify({"error": "internal server error"}), 500
+    
 @admin.route('/api/v1/products/sold', methods=['GET'])
 @jwt_required()
 def view_sold_products():
