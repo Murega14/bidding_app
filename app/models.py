@@ -54,7 +54,7 @@ class Product(BaseModel):
     name = db.Column(db.String(), nullable=False)
     description = db.Column(db.String(), nullable=False)
     starting_price = db.Column(db.Numeric(10, 2), nullable=False)
-    bidding_end_time = db.Column(db.DateTime, nullable=False)
+    bidding_end_time = db.Column(db.DateTime(timezone=True), nullable=False)
     admin_id = db.Column(db.Integer, db.ForeignKey('admin.id'))
     status = db.Column(db.Enum(ProductStatus), nullable=False, default=ProductStatus.AVAILABLE)
     

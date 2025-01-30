@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from ..models import db, Admin, Product, Bid
 from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 
 admin = Blueprint('admin', __name__)
 
@@ -124,8 +124,8 @@ def create_product():
             logger.error("not all fields have been entered")
             return jsonify({"error": "all fields are required"}), 401
         
-        current_time = datetime.now()
-        end_time_obj = datetime.strptime(end_time, '%d/%m/%Y %H:%M:%S')
+        current_time = datetime.now(timezone.utc)
+        end_time_obj = datetime.strptime(end_time, '%d/%m/%Y %H:%M:%S').replace(tzinfo=timezone.utc)
         
         if end_time_obj < current_time:
                 return jsonify({

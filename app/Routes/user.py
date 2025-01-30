@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 import logging
 from ..models import db, User, Product, Bid
 from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
-from datetime import timedelta, datetime
+from datetime import timedelta, datetime, timezone
 
 user = Blueprint('user', __name__)
 
@@ -29,9 +29,9 @@ def signup_user():
             logger.error("all fields have not been entered")
             return jsonify({"error": "all fields are required"}), 401
         
-        if db.query.filter((User.email==email) | (User.phone_number==phone_number)).first():
+        if db.session.query(User).filter((User.email==email) | (User.phone_number==phone_number)).first():
             logger.error(f"phone number{phone_number} or email{email} exists")
-            return jsonify({"error": "email or phone number exists"})
+            return jsonify({"error": "email or phone number exists"}), 409
             
         
         new_user = User(
@@ -73,11 +73,7 @@ def login_user():
         if not user or not user.check_password(password):
             return jsonify({"error": "Invalid credentials"}), 401
         
-        identity = {
-            'id': user.id,
-            'role': 'user'
-        }
-        
+        identity = str(user.id)
         expires = timedelta(hours=2)
         access_token = create_access_token(
             identity=identity,
@@ -150,18 +146,33 @@ def make_bid(id: int):
             logger.error(f"product {id} does not exist")
             return jsonify({"error": "product not found"}), 404
         
-        current_time = datetime.now()
-        if current_time < product.bidding_end_time:
+        if product.bidding_end_time.tzinfo is None:
+            product.bidding_end_time = product.bidding_end_time.replace(tzinfo=timezone.utc)
+            
+        current_time = datetime.now(timezone.utc)
+        
+        if current_time > product.bidding_end_time:
             logger.error("bid time has elapsed, cannot make bid")
-            return jsonify({"error": "bidding time has elapsed"})
+            return jsonify({"error": "bidding time has elapsed"}), 400
         
         data = request.get_json()
         bid_price = data.get('price')
         
+        if bid_price is None:
+            logger.error("bid price is missing")
+            return jsonify({"error": "bid price is required"}), 400
+        
         highest_bid = Bid.query.filter_by(product_id=id).order_by(Bid.bid_price.desc()).first()
-        if bid_price < highest_bid:
-            logger.error(f"bid price {bid_price} is lower than {highest_bid}")
-            return jsonify({"error": "cannot make a bid lower than current bid"}), 403
+        
+        # If there are no bids, compare with the starting price
+        if highest_bid is None:
+            if bid_price <= product.starting_price:
+                logger.error(f"bid price {bid_price} is lower than or equal to the starting price {product.starting_price}")
+                return jsonify({"error": "cannot make a bid lower than or equal to the starting price"}), 403
+        else:
+            if bid_price <= highest_bid.bid_price:
+                logger.error(f"bid price {bid_price} is lower than or equal to the current highest bid {highest_bid.bid_price}")
+                return jsonify({"error": "cannot make a bid lower than or equal to the current bid"}), 403
         
         new_bid = Bid(
             product_id=id,
