@@ -173,40 +173,41 @@ def create_product():
         return jsonify({"error": "internal server error"}),500
     
     
-@admin.route('/api/v1/admin/id/end', methods=['PUT'])
+@admin.route('/api/v1/admin/<int:id>/end', methods=['PUT'])
 @jwt_required()
 def end_bid(id: int):
     """
-    endpoint for when a product owner/admin wants to manually end the bid
+    Endpoint for when a product owner/admin wants to manually end the bid.
     """
     try:
-        user_id = get_jwt_identity()
+        user_id = int(get_jwt_identity())
         user = Admin.query.get(user_id)
+        
         if not user:
-            logger.error(f"user {user_id} does not exist")
-            return jsonify({"error": "user not found"}), 404
+            logger.error(f"User {user_id} does not exist")
+            return jsonify({"error": "User not found"}), 404
         
         product = Product.query.get(id)
         if not product:
-            logger.error(f"product {id} not found")
-            return jsonify({"error": "product not found"}), 404
+            logger.error(f"Product {id} not found")
+            return jsonify({"error": "Product not found"}), 404
         
-        if user_id != product.admin_id:
-            logger.error(f"unauthorized access by user {user_id} on product{id}")
-            return jsonify({"error": "unauthorized access"}), 403
+        if user.id != product.admin_id:
+            logger.error(f"Unauthorized access by user {user_id} on product {id}")
+            return jsonify({"error": "Unauthorized access"}), 403
         
-        bid_time = datetime.now()
-        
+        bid_time = datetime.now(timezone.utc)
         product.bidding_end_time = bid_time
         db.session.commit()
         
-        logger.info('bidding time has been updated and bidding has been stopped')
-        return jsonify({"message": "bidding stopped"}), 200
+        logger.info('Bidding time updated and bidding stopped')
+        return jsonify({"message": "Bidding stopped"}), 200
     
     except Exception as e:
         logger.error(f"Failed to stop bidding: {str(e)}")
         db.session.rollback()
-        return jsonify({"error": "internal server error"}), 500
+        return jsonify({"error": "Internal server error"}), 500
+    
     
 @admin.route('/api/v1/products/sold', methods=['GET'])
 @jwt_required()
