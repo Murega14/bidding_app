@@ -37,7 +37,7 @@ class UserMixin:
 class Admin(BaseModel, UserMixin):
     __tablename__ = 'admin'
     
-    products = db.relationship('Product', back_populates='admin', lazy='selectin', cascade='all, delete-orphan')
+    product = db.relationship('Product', back_populates='admin', lazy='selectin', cascade='all, delete-orphan')
 
 
 
@@ -66,3 +66,5 @@ class Bid(BaseModel):
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     bid_price = db.Column(db.Numeric(10, 2), nullable=False, unique=True)
     product_id = db.Column(db.Integer, db.ForeignKey('products.id'))
+    
+    user = db.relationship('User', back_populates='bids')

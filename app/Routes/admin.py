@@ -29,9 +29,9 @@ def signup_admin():
             logger.error("all fields have not been entered")
             return jsonify({"error": "all fields are required"}), 401
         
-        if db.query.filter((Admin.email==email) | (Admin.phone_number==phone_number)).first():
-            logger.error(f"phone number{phone_number} or email{email} exists")
-            return jsonify({"error": "email or phone number exists"})
+        if db.session.query(Admin).filter((Admin.email==email) | (Admin.phone_number==phone_number)).first():
+            logger.error(f"phone number {phone_number} or email {email} exists")
+            return jsonify({"error": "email or phone number exists"}), 409
             
         
         new_admin = Admin(
