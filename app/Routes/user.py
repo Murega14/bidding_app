@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from ..models import db, User, Product, Bid
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_current_user
+from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_jwt_identity
 from datetime import timedelta, datetime
 
 user = Blueprint('user', __name__)
@@ -138,7 +138,7 @@ def make_bid(id: int):
         id (int): product identifier
     """
     try:
-        user_id = get_current_user()
+        user_id = get_jwt_identity()
         user = User.query.get(user_id)
         
         if not user:

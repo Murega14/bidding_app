@@ -1,7 +1,7 @@
 from flask import Blueprint, request, jsonify
 import logging
 from ..models import db, Admin, Product, Bid
-from flask_jwt_extended import create_access_token, create_refresh_token, jwt_required, get_current_user
+from flask_jwt_extended import create_access_token, jwt_required, get_jwt_identity
 from datetime import timedelta, datetime
 
 admin = Blueprint('admin', __name__)
@@ -11,6 +11,8 @@ logging.basicConfig(
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+
 
 @admin.route('/api/v1/signup', methods=['POST'])
 def signup_admin():
@@ -73,10 +75,7 @@ def login_admin():
         if not admin or not admin.check_password(password):
             return jsonify({"error": "Invalid credentials"}), 401
         
-        identity = {
-            'id': admin.id,
-        }
-        
+        identity = str(admin.id)
         expires = timedelta(hours=2)
         access_token = create_access_token(
             identity=identity,
@@ -98,19 +97,26 @@ def login_admin():
 def create_product():
     """
     create a product by a logged in account
+    
+    Expected JSON format:
+    {
+        "name": "Product Name",
+        "description": "Product Description",
+        "starting_price": 100,
+        "end_time": "dd/mm/yyyy hh:mm:ss"
+    }
     """
     try:
-        user_id = get_current_user()
+        user_id = get_jwt_identity()
         user = Admin.query.get(user_id)
         if not user:
             logger.error(f"user {user_id} does not exist")
             return jsonify({"error": "user not found"}), 404
         
-        
         data = request.get_json()
         name = data.get('name')
         description = data.get('description')
-        starting_price = data.get('starting_price')
+        starting_price = int(data.get('starting_price', 0)) 
         end_time = data.get('end_time')
         
         
@@ -119,7 +125,7 @@ def create_product():
             return jsonify({"error": "all fields are required"}), 401
         
         current_time = datetime.now()
-        end_time_obj = datetime.strptime(end_time, '%Y-%m-%d %H:%M:%S')
+        end_time_obj = datetime.strptime(end_time, '%d/%m/%Y %H:%M:%S')
         
         if end_time_obj < current_time:
                 return jsonify({
@@ -131,14 +137,35 @@ def create_product():
             name=name,
             description=description,
             starting_price=starting_price,
-            end_time=end_time_obj,
+            bidding_end_time=end_time_obj,
             admin_id=user_id
         )
         db.session.add(new_product)
         db.session.commit()
         
-        logger.info(f"product {new_product.id} has been created by user {user_id}")
-        return jsonify({"message": "product has been added successfully"}), 201
+        response = {
+            "status": "success",
+            "message": "Product created successfully",
+            "data": {
+                "product": {
+                    "id": new_product.id,
+                    "name": name,
+                    "description": description,
+                    "starting_price": float(starting_price),
+                    "bidding_end_time": end_time_obj.strftime('%d/%m/%Y %H:%M:%S'),
+                    "status": new_product.status.value,
+                    "created_at": new_product.created_at.strftime('%d/%m/%Y %H:%M:%S')
+                },
+                "admin": {
+                    "id": user.id,
+                    "name": f"{user.first_name} {user.last_name}",
+                    "email": user.email
+                }
+            }
+        }
+        
+        logger.info(f"Product {new_product.id} created by admin {user_id}")
+        return jsonify(response), 201
     
     except Exception as e:
         logger.error(f"failed to create product: {str(e)}")
@@ -153,7 +180,7 @@ def end_bid(id: int):
     endpoint for when a product owner/admin wants to manually end the bid
     """
     try:
-        user_id = get_current_user()
+        user_id = get_jwt_identity()
         user = Admin.query.get(user_id)
         if not user:
             logger.error(f"user {user_id} does not exist")
