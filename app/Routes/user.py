@@ -103,7 +103,7 @@ def view_products():
     view all products
     """
     try:
-        products = Product.query.filter_by(status='available').all()
+        products = Product.query.all()
         
         product_list = []
         for product in products:
